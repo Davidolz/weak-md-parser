@@ -2,79 +2,133 @@ package com.github.arena.challenges.weakmdparser;
 
 public class MarkdownParser {
 
-    String parse(String markdown) {
+    /**
+     * Parses a given markdown string into HTML.
+     *
+     * @param markdown the markdown text to be parsed
+     * @return the HTML representation of the markdown text
+     */
+    public String parse(String markdown) {
         String[] lines = markdown.split("\n");
-        String result = "";
+        StringBuilder result = new StringBuilder();
         boolean activeList = false;
 
-        for (int i = 0; i < lines.length; i++) {
+        for (String line : lines) {
+            String parsedLine = parseLine(line);
 
-            String theLine = ph(lines[i]);
-
-            if (theLine == null) {
-                theLine = li(lines[i]);
-            }
-
-            if (theLine == null) {
-                theLine = p(lines[i]);
-            }
-
-            if (theLine.matches("(<li>).*") && !theLine.matches("(<h).*") && !theLine.matches("(<p>).*") && !activeList) {
+            if (parsedLine.startsWith("<li>") && !activeList) {
                 activeList = true;
-                result = result + "<ul>";
-                result = result + theLine;
-            } else if (!theLine.matches("(<li>).*") && activeList) {
-                activeList = false;
-                result = result + "</ul>";
-                result = result + theLine;
-            } else {
-                result = result + theLine;
+                result.append("<ul>");
             }
+
+            if (!parsedLine.startsWith("<li>") && activeList) {
+                activeList = false;
+                result.append("</ul>");
+            }
+
+            result.append(parsedLine);
         }
 
         if (activeList) {
-            result = result + "</ul>";
+            result.append("</ul>");
         }
 
-        return result;
+        return result.toString();
     }
 
-    protected String ph(String markdown) {
-        int count = 0;
+    /**
+     * Parses a single line of markdown text.
+     *
+     * @param line the markdown line to be parsed
+     * @return the HTML representation of the markdown line
+     */
+    private String parseLine(String line) {
+        String parsedLine = parseHeader(line);
 
-        for (int i = 0; i < markdown.length() && markdown.charAt(i) == '#'; i++) {
-            count++;
+        if (parsedLine == null) {
+            parsedLine = parseListItem(line);
         }
 
-        if (count == 0) {
+        if (parsedLine == null) {
+            parsedLine = parseParagraph(line);
+        }
+
+        return parsedLine;
+    }
+
+    /**
+     * Parses a markdown header line.
+     *
+     * @param markdown the markdown header line to be parsed as an HTML header
+     * @return the HTML representation of the header, or null if the line is not a header
+     */
+    private String parseHeader(String markdown) {
+        int headerLevel = countHashSymbols(markdown);
+
+        if (headerLevel == 0) {
             return null;
         }
 
-        return "<h" + Integer.toString(count) + ">" + markdown.substring(count + 1) + "</h" + Integer.toString(count) + ">";
+        String tagName = "h" + headerLevel;
+        String content = markdown.substring(headerLevel + 1).trim();
+
+        return "<" + tagName + ">" + content + "</" + tagName + ">";
     }
 
-    public String li(String markdown) {
-        if (markdown.startsWith("*")) {
-            String skipAsterisk = markdown.substring(2);
-            String listItemString = parseSomeSymbols(skipAsterisk);
-            return "<li>" + listItemString + "</li>";
+    /**
+     * Counts the number of leading hash symbols in a markdown line.
+     *
+     * @param line the line of text
+     * @return the number of leading hash symbols
+     */
+    private int countHashSymbols(String line) {
+        int count = 0;
+        while (count < line.length() && line.charAt(count) == '#') {
+            count++;
+        }
+        return count;
+    }
+
+    /**
+     * Parses a markdown list item.
+     *
+     * @param markdown the markdown line to be parsed as a list item
+     * @return the HTML representation of the list item, or null if the line is not a list item
+     */
+    private String parseListItem(String markdown) {
+        if (markdown.startsWith("* ")) {
+            String listItemContent = parseTextStyles(markdown.substring(2));
+            return "<li>" + listItemContent + "</li>";
         }
 
         return null;
     }
 
-    public String p(String markdown) {
-        return "<p>" + parseSomeSymbols(markdown) + "</p>";
+    /**
+     * Parses a markdown paragraph.
+     *
+     * @param markdown the markdown line to be parsed as a paragraph
+     * @return the HTML representation of the paragraph
+     */
+    private String parseParagraph(String markdown) {
+        return "<p>" + parseTextStyles(markdown) + "</p>";
     }
 
-    public String parseSomeSymbols(String markdown) {
+    /**
+     * Parses text styles in a markdown string.
+     * Currently supports bold and italic styles.
+     *
+     * @param markdown the markdown text to be parsed for text styles
+     * @return the HTML representation of the styled text
+     */
+    private String parseTextStyles(String markdown) {
+        String boldPattern = "__(.+)__";
+        String boldReplacement = "<strong>$1</strong>";
+        String result = markdown.replaceAll(boldPattern, boldReplacement);
 
-        String lookingFor = "__(.+)__";
-        String update = "<strong>$1</strong>";
-        String workingOn = markdown.replaceAll(lookingFor, update);
-
-        lookingFor = "_(.+)_";
-        update = "<em>$1</em>";
-        return workingOn.replaceAll(lookingFor, update);
+        String italicPattern = "_(.+)_";
+        String italicReplacement = "<em>$1</em>";
+        return result.replaceAll(italicPattern, italicReplacement);
     }
 }
+
